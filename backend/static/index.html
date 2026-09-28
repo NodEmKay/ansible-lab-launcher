@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ansible Lab Launcher</title>
+
+<style>
+:root {
+    --bg: #08111f;
+    --panel: #0f1b2d;
+    --panel-2: #132238;
+    --border: #243750;
+    --text: #f3f7fc;
+    --muted: #8fa4bd;
+    --blue: #3b82f6;
+    --blue-light: #60a5fa;
+    --green: #22c55e;
+    --orange: #f59e0b;
+    --red: #ef4444;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 50% -20%, #17345a 0, transparent 38%),
+        var(--bg);
+}
+
+.shell {
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 34px 0 60px;
+}
+
+/* Header */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.logo {
+    width: 52px;
+    height: 52px;
+    display: grid;
+    place-items: center;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #2563eb, #1d4ed8);
+    box-shadow: 0 10px 30px rgba(37, 99, 235, .3);
+    font-size: 25px;
+    font-weight: 800;
+}
+
+.brand h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: -.4px;
+}
+
+.brand p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.aws-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    border: 1px solid var(--border);
+    background: rgba(15, 27, 45, .82);
+    border-radius: 12px;
+}
+
+.dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 10px rgba(34, 197, 94, .8);
+}
+
+.aws-main {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.aws-region {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 2px;
+}
+
+/* Summary */
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.summary-card {
+    min-height: 105px;
+    padding: 18px;
+    background: linear-gradient(145deg, rgba(19,34,56,.95), rgba(12,25,42,.95));
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.summary-label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+}
+
+.summary-value {
+    margin-top: 11px;
+    font-size: 18px;
+    font-weight: 750;
+}
+
+.summary-sub {
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.good {
+    color: #65e795;
+}
+
+/* Main */
+
+.main-grid {
+    display: grid;
+    grid-template-columns: 1.35fr .85fr;
+    gap: 20px;
+}
+
+.panel {
+    border: 1px solid var(--border);
+    background: rgba(15, 27, 45, .94);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .18);
+}
+
+.panel-header {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--border);
+}
+
+.panel-header h2 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.panel-header p {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.panel-body {
+    padding: 22px;
+}
+
+/* Form */
+
+.field {
+    margin-bottom: 20px;
+}
+
+.field label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.field-hint {
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+input {
+    width: 100%;
+    padding: 13px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    color: var(--text);
+    background: #091525;
+    font: inherit;
+    transition: border .2s, box-shadow .2s;
+}
+
+input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .15);
+}
+
+.managed-key {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid rgba(34,197,94,.24);
+    border-radius: 10px;
+    background: rgba(34,197,94,.06);
+    margin-bottom: 20px;
+}
+
+.check-icon {
+    color: var(--green);
+    font-size: 18px;
+    line-height: 1;
+}
+
+.managed-key strong {
+    display: block;
+    font-size: 13px;
+}
+
+.managed-key span {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.resource-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 4px 0 20px;
+}
+
+.resource {
+    padding: 12px;
+    background: #0a1728;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.resource strong {
+    display: block;
+    font-size: 13px;
+}
+
+.resource span {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+/* Buttons */
+
+.actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 22px;
+}
+
+button {
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 19px;
+    font: inherit;
+    font-weight: 750;
+    cursor: pointer;
+    transition: transform .15s, opacity .15s, box-shadow .15s;
+}
+
+button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: .48;
+}
+
+#build-button {
+    flex: 1;
+    color: white;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    box-shadow: 0 10px 25px rgba(37,99,235,.24);
+}
+
+#destroy-button {
+    display: none;
+    color: #fecaca;
+    border: 1px solid rgba(239,68,68,.35);
+    background: rgba(239,68,68,.10);
+}
+
+/* Architecture */
+
+.architecture {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0 2px;
+}
+
+.node {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #0a1728;
+}
+
+.node-main {
+    max-width: 250px;
+    border-color: rgba(59,130,246,.45);
+    background: rgba(59,130,246,.08);
+}
+
+.node-name {
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.node-role {
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.connector {
+    width: 1px;
+    height: 25px;
+    background: var(--border);
+}
+
+.servers {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 9px;
+}
+
+.server-state {
+    float: right;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.workflow {
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.workflow h3 {
+    margin: 0 0 14px;
+    font-size: 13px;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin: 11px 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.step-number {
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: #b8c8da;
+    background: #0a1728;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Message */
+
+#message {
+    display: none;
+    margin-top: 18px;
+    padding: 14px;
+    max-height: 320px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #b9cce2;
+    background: #07111f;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.warning {
+    display: flex;
+    gap: 9px;
+    padding: 11px 13px;
+    color: #d7b874;
+    border: 1px solid rgba(245,158,11,.22);
+    border-radius: 9px;
+    background: rgba(245,158,11,.055);
+    font-size: 11px;
+    line-height: 1.45;
+}
+
+.footer {
+    margin-top: 22px;
+    color: #60768e;
+    text-align: center;
+    font-size: 11px;
+}
+
+@media (max-width: 850px) {
+    .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .shell {
+        width: min(100% - 24px, 1180px);
+        padding-top: 20px;
+    }
+
+    .header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .summary-grid,
+    .resource-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .servers {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="shell">
+
+    <header class="header">
+        <div class="brand">
+            <div class="logo">A</div>
+            <div>
+                <h1>Ansible Lab Launcher</h1>
+                <p>Automated AWS practice environment</p>
+            </div>
+        </div>
+
+        <div class="aws-pill">
+            <div class="dot" id="aws-dot"></div>
+            <div>
+                <div class="aws-main">
+                    AWS <span id="aws-status">Checking...</span>
+                </div>
+                <div class="aws-region">
+                    Region <span id="aws-region">Checking...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <section class="summary-grid">
+
+        <div class="summary-card">
+            <div class="summary-label">Lab Status</div>
+            <div class="summary-value" id="lab-status">Checking...</div>
+            <div class="summary-sub">Launcher infrastructure</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">AWS Environment</div>
+            <div class="summary-value good" id="aws-summary">Checking...</div>
+            <div class="summary-sub">Identity verified with AWS</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">SSH Key</div>
+            <div class="summary-value good" id="key-summary">Managed</div>
+            <div class="summary-sub">Automatic reconciliation</div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-label">Access Control</div>
+            <div class="summary-value">Restricted</div>
+            <div class="summary-sub">SSH limited to configured CIDR</div>
+        </div>
+
+    </section>
+
+
+    <main class="main-grid">
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2>Lab Configuration</h2>
+                <p>Configure and deploy your Ansible practice infrastructure.</p>
+            </div>
+
+            <div class="panel-body">
+
+                <div class="managed-key">
+                    <div class="check-icon">✓</div>
+                    <div>
+                        <strong>SSH key managed automatically</strong>
+                        <span>
+                            The Launcher reconciles the SSH key whenever
+                            the AWS environment changes.
+                        </span>
+                    </div>
+                </div>
+
+
+                <div class="field">
+                    <label for="ami-id">RHEL AMI ID</label>
+                    <input
+                        id="ami-id"
+                        type="text"
+                        value="ami-00adafae70b8029d8"
+                        autocomplete="off"
+                    >
+                    <div class="field-hint">
+                        Region-specific RHEL image used for all lab nodes.
+                    </div>
+                </div>
+
+
+                <div class="field">
+                    <label for="ssh-cidr">Allowed SSH CIDR</label>
+                    <input
+                        id="ssh-cidr"
+                        type="text"
+                        placeholder="Detecting your public IPv4 address..."
+                        autocomplete="off"
+                    >
+                    <div class="field-hint">
+                        SSH access is restricted to this IPv4 CIDR.
+                    </div>
+                </div>
+
+
+                <div class="resource-strip">
+                    <div class="resource">
+                        <strong>5 EC2 nodes</strong>
+                        <span>1 workstation + 4 managed hosts</span>
+                    </div>
+
+                    <div class="resource">
+                        <strong>Practice EBS</strong>
+                        <span>Dedicated lab storage volumes</span>
+                    </div>
+
+                    <div class="resource">
+                        <strong>Private SSH</strong>
+                        <span>No unrestricted SSH ingress</span>
+                    </div>
+                </div>
+
+
+                <div class="warning">
+                    <span>⚠</span>
+                    <span>
+                        Building the lab creates AWS EC2 and EBS resources.
+                        Review your AWS environment before provisioning.
+                    </span>
+                </div>
+
+
+                <div class="actions">
+                    <button id="build-button" disabled>
+                        Build Lab
+                    </button>
+
+                    <button id="prepare-button"
+                            class="btn btn-primary"
+                            type="button"
+                            disabled>
+                        Prepare RH294 Environment
+                    </button>
+
+                    <button id="destroy-button">
+                        Destroy Lab
+                    </button>
+                </div>
+
+                <div id="message"></div>
+
+            </div>
+        </section>
+
+
+        <aside class="panel">
+            <div class="panel-header">
+                <h2>Lab Architecture</h2>
+                <p>Launcher-managed Ansible topology.</p>
+            </div>
+
+            <div class="panel-body">
+
+                <div class="architecture">
+
+                    <div class="node node-main">
+                        <span class="server-state">CONTROL</span>
+                        <div class="node-name">workstation</div>
+                        <div class="node-role">
+                            Ansible control node
+                        </div>
+                    </div>
+
+                    <div class="connector"></div>
+
+                    <div class="servers">
+
+                        <div class="node">
+                            <span class="server-state">MANAGED</span>
+                            <div class="node-name">servera</div>
+                            <div class="node-role">Practice host</div>
+                        </div>
+
+                        <div class="node">
+                            <span class="server-state">MANAGED</span>
+                            <div class="node-name">serverb</div>
+                            <div class="node-role">Practice host</div>
+                        </div>
+
+                        <div class="node">
+                            <span class="server-state">MANAGED</span>
+                            <div class="node-name">serverc</div>
+                            <div class="node-role">Practice host</div>
+                        </div>
+
+                        <div class="node">
+                            <span class="server-state">MANAGED</span>
+                            <div class="node-name">serverd</div>
+                            <div class="node-role">Practice host</div>
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <div class="workflow">
+                    <h3>Deployment workflow</h3>
+
+                    <div id="workflow-steps">
+                        <div class="step">
+                            <div class="step-number">...</div>
+                            <span>Loading workflow status...</span>
+                        </div>
+                    </div>
+
+                    <div id="rh294-ready-banner"
+                         style="
+                            display:none;
+                            margin-top:18px;
+                            padding:16px;
+                            border:1px solid var(--green);
+                            border-radius:10px;
+                            text-align:center;
+                         ">
+                        <div style="
+                            font-size:12px;
+                            letter-spacing:1.5px;
+                            color:var(--green);
+                            font-weight:700;
+                         ">
+                            RH294 LAB READY
+                        </div>
+
+                        <div style="
+                            margin-top:6px;
+                            font-size:12px;
+                            color:var(--muted);
+                         ">
+                            Ansible validation passed on all managed hosts
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </main>
+
+    <div class="footer">
+        Ansible Lab Launcher · AWS infrastructure managed by the Launcher
+    </div>
+
+</div>
+
+
+<script>
+
+const buildButton = document.getElementById("build-button");
+const prepareButton = document.getElementById("prepare-button");
+const destroyButton = document.getElementById("destroy-button");
+const message = document.getElementById("message");
+
+
+function showMessage(text) {
+    message.style.display = "block";
+    message.textContent = text;
+}
+
+
+async function loadAwsEnvironment() {
+
+    const statusElement = document.getElementById("aws-status");
+    const regionElement = document.getElementById("aws-region");
+    const summaryElement = document.getElementById("aws-summary");
+    const keySummary = document.getElementById("key-summary");
+    const dot = document.getElementById("aws-dot");
+
+    statusElement.textContent = "Checking...";
+    regionElement.textContent = "Checking...";
+    summaryElement.textContent = "Checking...";
+
+    try {
+
+        const response = await fetch("/api/aws/context");
+        const data = await response.json();
+
+        if (data.status === "ready" && data.ssh_key === "ready") {
+
+            statusElement.textContent = "Connected";
+            regionElement.textContent = data.region;
+            summaryElement.textContent = "Connected";
+            keySummary.textContent = "Ready";
+
+            dot.style.background = "var(--green)";
+
+        } else {
+
+            statusElement.textContent = "Disconnected";
+            regionElement.textContent = "Unavailable";
+            summaryElement.textContent = "Unavailable";
+            keySummary.textContent = "Unavailable";
+
+            dot.style.background = "var(--red)";
+
+        }
+
+    } catch (error) {
+
+        statusElement.textContent = "Error";
+        regionElement.textContent = "Unavailable";
+        summaryElement.textContent = "Error";
+        keySummary.textContent = "Unavailable";
+
+        dot.style.background = "var(--red)";
+    }
+}
+
+
+async function loadLabStatus() {
+
+    const labStatus = document.getElementById("lab-status");
+
+    try {
+
+        const response = await fetch("/api/labs");
+        const data = await response.json();
+
+        if (data.instance_count > 0) {
+
+            labStatus.textContent =
+                `ACTIVE · ${data.instance_count} NODES`;
+
+            labStatus.classList.add("good");
+
+            buildButton.disabled = true;
+            destroyButton.style.display = "inline-block";
+
+        } else {
+
+            labStatus.textContent = "NOT BUILT";
+            labStatus.classList.remove("good");
+
+            buildButton.disabled = false;
+            destroyButton.style.display = "none";
+        }
+
+    } catch (error) {
+
+        labStatus.textContent = "ERROR";
+        labStatus.classList.remove("good");
+
+        buildButton.disabled = true;
+    }
+}
+
+
+buildButton.addEventListener("click", async () => {
+
+    const amiId =
+        document.getElementById("ami-id").value.trim();
+
+    const sshCidr =
+        document.getElementById("ssh-cidr").value.trim();
+
+    if (!amiId || !sshCidr) {
+        showMessage(
+            "AMI ID and Allowed SSH CIDR are required."
+        );
+        return;
+    }
+
+    if (!confirm(
+        "Build the AWS lab now? This creates AWS EC2 and EBS resources."
+    )) {
+        return;
+    }
+
+    buildButton.disabled = true;
+
+    showMessage(
+        "Preparing SSH key and building lab.\n" +
+        "Provisioning can take several minutes..."
+    );
+
+    try {
+
+        const params = new URLSearchParams({
+            ami_id: amiId,
+            allowed_ssh_cidr: sshCidr
+        });
+
+        const response = await fetch(
+            `/api/labs?${params.toString()}`,
+            {
+                method: "POST"
+            }
+        );
+
+        const data = await response.json();
+
+        showMessage(
+            JSON.stringify(data, null, 2)
+        );
+
+        await loadLabStatus();
+
+    } catch (error) {
+
+        showMessage(
+            "Lab build request failed."
+        );
+
+    } finally {
+
+        await loadLabStatus();
+    }
+});
+
+
+prepareButton.addEventListener("click", async () => {
+    const originalText = prepareButton.textContent;
+
+    prepareButton.disabled = true;
+    prepareButton.textContent = "Preparing RH294...";
+
+    try {
+        const response = await fetch("/api/labs/prepare", {
+            method: "POST"
+        });
+
+        const data = await response.json();
+
+        if (data.status === "ready") {
+            prepareButton.textContent = "RH294 Ready";
+        } else if (
+            data.status === "action_required" &&
+            data.stage === "registry_authentication"
+        ) {
+            prepareButton.textContent = "Continue Setup";
+
+            alert(
+                "Red Hat registry authentication is required.\n\n" +
+                "SSH to the AWS workstation and run:\n\n" +
+                "podman login registry.redhat.io\n\n" +
+                "Then return here and click Continue Setup.\n\n" +
+                "Do not enter your Red Hat password in this web page."
+            );
+        } else {
+            prepareButton.textContent = "Retry RH294 Preparation";
+
+            alert(
+                data.message ||
+                "RH294 preparation did not complete."
+            );
+        }
+    } catch (error) {
+        console.error(error);
+        prepareButton.textContent = originalText;
+
+        alert(
+            "Unable to complete RH294 preparation. " +
+            "Check the Launcher service logs."
+        );
+    } finally {
+        await loadLabStatus();
+        await loadWorkflowStatus();
+    }
+});
+
+
+destroyButton.addEventListener("click", async () => {
+
+    if (!confirm(
+        "Destroy the Ansible lab? Launcher-managed EC2 instances and practice volumes will be deleted."
+    )) {
+        return;
+    }
+
+    destroyButton.disabled = true;
+
+    showMessage(
+        "Destroying lab. Please wait..."
+    );
+
+    try {
+
+        const response = await fetch(
+            "/api/labs",
+            {
+                method: "DELETE"
+            }
+        );
+
+        const data = await response.json();
+
+        showMessage(
+            JSON.stringify(data, null, 2)
+        );
+
+        await loadLabStatus();
+
+    } catch (error) {
+
+        showMessage(
+            "Lab destruction failed."
+        );
+
+    } finally {
+
+        destroyButton.disabled = false;
+    }
+});
+
+
+
+async function loadWorkflowStatus() {
+
+    const container = document.getElementById("workflow-steps");
+    const readyBanner = document.getElementById("rh294-ready-banner");
+
+    try {
+
+        const response = await fetch("/api/labs/workflow");
+        const data = await response.json();
+
+        container.innerHTML = "";
+
+        data.steps.forEach((step, index) => {
+
+            const row = document.createElement("div");
+            row.className = "step";
+
+            const number = document.createElement("div");
+            number.className = "step-number";
+
+            if (step.status === "complete") {
+                number.textContent = "✓";
+                number.style.color = "var(--green)";
+                number.style.borderColor = "var(--green)";
+            } else if (step.status === "not_required") {
+                number.textContent = "○";
+            } else if (step.status === "stopped") {
+                number.textContent = "↻";
+            } else if (step.status === "failed") {
+                number.textContent = "!";
+                number.style.color = "var(--red)";
+                number.style.borderColor = "var(--red)";
+            } else {
+                number.textContent = index + 1;
+            }
+
+            const content = document.createElement("div");
+
+            const title = document.createElement("div");
+            title.textContent = step.name;
+
+            const detail = document.createElement("div");
+            detail.textContent = step.detail || "";
+            detail.style.fontSize = "11px";
+            detail.style.marginTop = "3px";
+            detail.style.color = "var(--muted)";
+
+            content.appendChild(title);
+            content.appendChild(detail);
+
+            row.appendChild(number);
+            row.appendChild(content);
+
+            container.appendChild(row);
+        });
+
+        if (data.rh294_ready === true) {
+            prepareButton.disabled = true;
+            prepareButton.textContent = "RH294 Ready";
+        } else {
+            prepareButton.disabled = false;
+            prepareButton.textContent = "Prepare RH294 Environment";
+        }
+
+        readyBanner.style.display =
+            data.rh294_ready === true ? "block" : "none";
+
+    } catch (error) {
+
+        container.innerHTML = "";
+
+        const row = document.createElement("div");
+        row.className = "step";
+
+        const number = document.createElement("div");
+        number.className = "step-number";
+        number.textContent = "!";
+
+        const message = document.createElement("span");
+        message.textContent = "Unable to load deployment workflow";
+
+        row.appendChild(number);
+        row.appendChild(message);
+
+        container.appendChild(row);
+
+        readyBanner.style.display = "none";
+    }
+}
+
+
+async function loadPublicIp() {
+
+    const sshCidr =
+        document.getElementById("ssh-cidr");
+
+    sshCidr.value = "Detecting...";
+
+    try {
+
+        const response =
+            await fetch("/api/network/my-ip");
+
+        const data =
+            await response.json();
+
+        if (data.status === "ready") {
+
+            sshCidr.value = data.cidr;
+
+        } else {
+
+            sshCidr.value = "";
+            sshCidr.placeholder =
+                "Enter your public IPv4 CIDR";
+        }
+
+    } catch (error) {
+
+        sshCidr.value = "";
+        sshCidr.placeholder =
+            "Enter your public IPv4 CIDR";
+    }
+}
+
+
+async function initialize() {
+
+    await loadWorkflowStatus();
+
+    await loadAwsEnvironment();
+    await loadPublicIp();
+    await loadLabStatus();
+}
+
+
+initialize();
+
+</script>
+
+</body>
+</html>

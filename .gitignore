@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Credentials and keys
+*.pem
+*.key
+.aws/
+.env
+.env.*
+
+# Launcher runtime data
+data/
+keys/
+*.log
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# UI working backups
+*.backup
+*.before-prepare-ui
+
+# Temporary files
+*.tmp
+*~
