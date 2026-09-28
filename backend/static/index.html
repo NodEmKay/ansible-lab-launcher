@@ -743,9 +743,25 @@ const destroyButton = document.getElementById("destroy-button");
 const message = document.getElementById("message");
 
 
-function showMessage(text) {
+function showMessage(text, type = "info", autoHide = false) {
     message.style.display = "block";
     message.textContent = text;
+
+    if (type === "success") {
+        message.style.borderColor = "rgba(34, 197, 94, 0.45)";
+        message.style.background = "rgba(34, 197, 94, 0.12)";
+        message.style.color = "#86efac";
+    } else {
+        message.style.borderColor = "";
+        message.style.background = "";
+        message.style.color = "";
+    }
+
+    if (autoHide) {
+        setTimeout(() => {
+            message.style.display = "none";
+        }, 7000);
+    }
 }
 
 
@@ -914,6 +930,12 @@ prepareButton.addEventListener("click", async () => {
 
         if (data.status === "ready") {
             prepareButton.textContent = "RH294 Ready";
+
+            showMessage(
+                "✓ RH294 environment is ready — All 4 managed hosts passed Ansible validation.",
+                "success",
+                true
+            );
         } else if (
             data.status === "action_required" &&
             data.stage === "registry_authentication"
