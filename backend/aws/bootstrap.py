@@ -145,6 +145,28 @@ else
     git clone https://github.com/NodEmKay/aws-rh294-lab.git "$PROJECT"
 fi
 
+# Compatibility fix for inventory entries that include ansible_host.
+# The repository validator originally required the whole inventory line
+# to equal the hostname, but Launcher inventory lines also contain variables.
+python3 - "$PROJECT/scripts/bootstrap-workstation.sh" <<'PATCH'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text()
+
+old = 'grep -Fxq "$HOST" "$INVENTORY_FILE"'
+new = 'grep -Eq "^${{HOST}}[[:space:]]" "$INVENTORY_FILE"'
+
+if old in text:
+    text = text.replace(old, new)
+    path.write_text(text)
+elif new not in text:
+    raise SystemExit(
+        "Unsupported RH294 inventory validator format"
+    )
+PATCH
+
 cat > "$PROJECT/inventory" <<'INVENTORY'
 {inventory}
 INVENTORY
