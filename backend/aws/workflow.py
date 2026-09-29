@@ -293,6 +293,26 @@ def validate_ansible(inventory=None):
 
         _save_validation_state(validation_status, inventory)
 
+        # RC2: expose a clean student workspace only after the
+        # Launcher-managed RH294 environment has validated successfully.
+        if validation_status == "ready":
+            student_workspace = _run_remote(
+                client,
+                """mkdir -p "$HOME/rhce-lab" &&
+cp "$HOME/ansible-projects/aws-rh294/ansible.cfg" "$HOME/rhce-lab/ansible.cfg" &&
+cp "$HOME/ansible-projects/aws-rh294/ansible-navigator.yml" "$HOME/rhce-lab/ansible-navigator.yml" &&
+cp "$HOME/ansible-projects/aws-rh294/inventory" "$HOME/rhce-lab/inventory" &&
+chmod 755 "$HOME/rhce-lab" &&
+chmod 644 "$HOME/rhce-lab/ansible.cfg" "$HOME/rhce-lab/ansible-navigator.yml" "$HOME/rhce-lab/inventory" """,
+                timeout=30,
+            )
+
+            if not student_workspace["ok"]:
+                return {
+                    "status": "not_ready",
+                    "reason": "Unable to prepare the student workspace",
+                }
+
         return {
             "status": validation_status,
             "exit_code": result["exit_code"],
