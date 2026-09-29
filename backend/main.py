@@ -179,11 +179,49 @@ def create_complete_lab(
     allowed_ssh_cidr: str,
 ):
     """Build the complete Launcher-managed AWS lab."""
+    import ipaddress
+    import re
+
     from backend.aws.operations import (
         acquire_operation,
         busy_response,
         release_operation,
     )
+
+    if not re.fullmatch(r"ami-[0-9a-f]{8,17}", ami_id):
+        return {
+            "status": "invalid",
+            "field": "ami_id",
+            "message": "Invalid AMI ID.",
+        }
+
+    try:
+        ssh_network = ipaddress.ip_network(
+            allowed_ssh_cidr,
+            strict=False,
+        )
+    except ValueError:
+        return {
+            "status": "invalid",
+            "field": "allowed_ssh_cidr",
+            "message": "Invalid IPv4 CIDR.",
+        }
+
+    if ssh_network.version != 4:
+        return {
+            "status": "invalid",
+            "field": "allowed_ssh_cidr",
+            "message": "Only IPv4 SSH CIDRs are supported.",
+        }
+
+    if ssh_network.prefixlen == 0:
+        return {
+            "status": "invalid",
+            "field": "allowed_ssh_cidr",
+            "message": "Open SSH access is not permitted.",
+        }
+
+    allowed_ssh_cidr = str(ssh_network)
 
     operation = acquire_operation("build")
 
