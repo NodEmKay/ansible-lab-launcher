@@ -589,8 +589,7 @@ def get_prepare_job_status():
     return _prepare_job_snapshot()
 
 
-def _prepare_job_worker(job_id):
-    result = prepare_rh294(job_id=job_id)
+def _finish_prepare_job(job_id, result):
 
     result_status = result.get("status")
 
@@ -638,21 +637,56 @@ def _prepare_job_worker(job_id):
         )
 
 
+def _prepare_job_worker(job_id):
+    from backend.aws.operations import release_operation
+
+    try:
+        result = prepare_rh294(job_id=job_id)
+        _finish_prepare_job(job_id, result)
+
+    except Exception as exc:
+        print(
+            "RH294 background preparation failed:",
+            repr(exc),
+        )
+
+        _set_prepare_job(
+            job_id,
+            status="failed",
+            current_stage="failed",
+            detail="RH294 preparation failed",
+            message="RH294 preparation failed",
+        )
+
+    finally:
+        release_operation("prepare")
+
+
 def start_prepare_rh294_job():
     """
     Start RH294 preparation asynchronously.
 
-    Only one preparation job may run at a time.
+    Only one lab-changing operation may run at a time.
     """
     import copy
     import threading
     import uuid
+
+    from backend.aws.operations import (
+        acquire_operation,
+        busy_response,
+    )
 
     lock = _get_prepare_job_lock()
 
     with lock:
         if _PREPARE_JOB_STATE.get("status") == "running":
             return copy.deepcopy(_PREPARE_JOB_STATE)
+
+        operation = acquire_operation("prepare")
+
+        if not operation["acquired"]:
+            return busy_response(operation["operation"])
 
         job_id = uuid.uuid4().hex
 

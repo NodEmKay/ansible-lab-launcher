@@ -178,27 +178,55 @@ def create_complete_lab(
     allowed_ssh_cidr: str,
 ):
     """Build the complete Launcher-managed AWS lab."""
-
-    key = reconcile_key("ansible-lab-key")
-
-    if key.get("status") != "ready":
-        return {
-            "status": "failed",
-            "stage": "ssh_key",
-            "details": key,
-        }
-
-    return build_lab(
-        ami_id=ami_id,
-        key_name=key["key_name"],
-        allowed_ssh_cidr=allowed_ssh_cidr,
+    from backend.aws.operations import (
+        acquire_operation,
+        busy_response,
+        release_operation,
     )
+
+    operation = acquire_operation("build")
+
+    if not operation["acquired"]:
+        return busy_response(operation["operation"])
+
+    try:
+        key = reconcile_key("ansible-lab-key")
+
+        if key.get("status") != "ready":
+            return {
+                "status": "failed",
+                "stage": "ssh_key",
+                "message": "SSH key preparation failed.",
+            }
+
+        return build_lab(
+            ami_id=ami_id,
+            key_name=key["key_name"],
+            allowed_ssh_cidr=allowed_ssh_cidr,
+        )
+
+    finally:
+        release_operation("build")
 
 
 @app.delete("/api/labs")
 def delete_lab():
     """Destroy the Launcher-managed AWS lab."""
-    return destroy_lab()
+    from backend.aws.operations import (
+        acquire_operation,
+        busy_response,
+        release_operation,
+    )
+
+    operation = acquire_operation("destroy")
+
+    if not operation["acquired"]:
+        return busy_response(operation["operation"])
+
+    try:
+        return destroy_lab()
+    finally:
+        release_operation("destroy")
 
 @app.get("/api/network/my-ip")
 def get_my_public_ip():
@@ -289,4 +317,3 @@ def prepare_rh294_lab():
 def validate_rh294_lab():
     """Run the functional RH294 Ansible validation."""
     return validate_ansible()
-
