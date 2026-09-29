@@ -619,6 +619,7 @@ def _prepare_job_worker(job_id):
                 "message",
                 "User action is required",
             ),
+            connection=result.get("connection"),
         )
 
     else:
@@ -788,6 +789,11 @@ def prepare_rh294(job_id=None):
                     ),
                 )
 
+                workstation = (
+                    inventory.get("nodes", {})
+                    .get("workstation", {})
+                )
+
                 return {
                     "status": "action_required",
                     "stage": "registry_authentication",
@@ -796,6 +802,10 @@ def prepare_rh294(job_id=None):
                         "podman login registry.redhat.io, then "
                         "click Continue Setup."
                     ),
+                    "connection": {
+                        "host": workstation.get("public_ip"),
+                        "user": "ec2-user",
+                    },
                 }
 
             _set_prepare_step(

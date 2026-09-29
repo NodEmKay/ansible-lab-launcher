@@ -631,6 +631,85 @@ button:disabled {
 
                 <div id="message"></div>
 
+                <div id="registry-action-panel"
+                     style="
+                        display:none;
+                        margin-top:16px;
+                        padding:18px;
+                        border:1px solid rgba(245, 158, 11, 0.55);
+                        border-radius:10px;
+                        background:rgba(245, 158, 11, 0.08);
+                     ">
+
+                    <div style="
+                        color:#fbbf24;
+                        font-size:13px;
+                        font-weight:700;
+                        letter-spacing:0.4px;
+                     ">
+                        ⚠ Red Hat Registry Login Required
+                    </div>
+
+                    <div style="
+                        margin-top:10px;
+                        color:var(--muted);
+                        font-size:12px;
+                        line-height:1.6;
+                     ">
+                        The AWS workstation is ready, but Red Hat
+                        registry authentication is required to prepare
+                        the RH294 execution environment.
+                    </div>
+
+                    <div style="
+                        margin-top:14px;
+                        font-size:12px;
+                        line-height:1.7;
+                     ">
+                        <strong>1. Connect to the AWS workstation</strong>
+                        <div id="registry-ssh-instruction"
+                             style="
+                                margin-top:5px;
+                                color:var(--muted);
+                             ">
+                            Use the workstation SSH connection.
+                        </div>
+
+                        <strong style="
+                            display:block;
+                            margin-top:12px;
+                        ">
+                            2. On the workstation run
+                        </strong>
+
+                        <code style="
+                            display:block;
+                            margin-top:5px;
+                            padding:10px;
+                            border-radius:6px;
+                            background:rgba(0,0,0,0.22);
+                            overflow-wrap:anywhere;
+                        ">podman login registry.redhat.io</code>
+
+                        <div style="
+                            margin-top:12px;
+                            color:var(--muted);
+                        ">
+                            Enter your Red Hat username and password
+                            directly on the AWS workstation.
+                            The Launcher does not request or store
+                            these credentials.
+                        </div>
+
+                        <strong style="
+                            display:block;
+                            margin-top:12px;
+                        ">
+                            3. Return here and click Continue Setup
+                        </strong>
+                    </div>
+                </div>
+
             </div>
         </section>
 
@@ -741,6 +820,10 @@ const buildButton = document.getElementById("build-button");
 const prepareButton = document.getElementById("prepare-button");
 const destroyButton = document.getElementById("destroy-button");
 const message = document.getElementById("message");
+const registryActionPanel =
+    document.getElementById("registry-action-panel");
+const registrySshInstruction =
+    document.getElementById("registry-ssh-instruction");
 
 
 function showMessage(text, type = "info", autoHide = false) {
@@ -1067,6 +1150,10 @@ function applyPrepareJobState(job, notify = false) {
         return;
     }
 
+    if (job.status !== "action_required") {
+        registryActionPanel.style.display = "none";
+    }
+
     Object.entries(job.step_updates || {}).forEach(
         ([stepId, update]) => {
             updateWorkflowStep(
@@ -1093,14 +1180,23 @@ function applyPrepareJobState(job, notify = false) {
         prepareButton.disabled = false;
         prepareButton.textContent = "Continue Setup";
 
-        showMessage(
-            "Red Hat Registry Login Required\n\n" +
-            "1. Connect to the AWS workstation.\n" +
-            "2. Run: podman login registry.redhat.io\n" +
-            "3. Enter your Red Hat credentials directly on the workstation.\n" +
-            "4. Return here and click Continue Setup.",
-            "action"
-        );
+        message.style.display = "none";
+
+        const connection = job.connection || {};
+        const host = connection.host;
+        const user = connection.user || "ec2-user";
+
+        if (host) {
+            registrySshInstruction.textContent =
+                "ssh -i ~/ansible-lab-launcher-data/keys/" +
+                "ansible-lab-key.pem " +
+                user + "@" + host;
+        } else {
+            registrySshInstruction.textContent =
+                "Workstation public IP is not currently available.";
+        }
+
+        registryActionPanel.style.display = "block";
 
     } else if (job.status === "ready") {
         stopPreparePolling();
@@ -1338,4 +1434,4 @@ initialize();
 </script>
 
 </body>
-</html>
+</html>\n
