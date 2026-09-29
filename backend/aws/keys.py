@@ -206,12 +206,14 @@ def reconcile_key(key_name="ansible-lab-key"):
         )
 
     except (NoCredentialsError, BotoCoreError, ClientError) as exc:
+        print("SSH key reconciliation AWS error:", repr(exc))
         return {
             "status": "error",
-            "message": str(exc),
+            "message": "Unable to reconcile the SSH key.",
         }
     except Exception as exc:
+        print("SSH key reconciliation failed:", repr(exc))
         return {
             "status": "error",
-            "message": f"SSH key reconciliation failed: {exc}",
+            "message": "Unable to reconcile the SSH key.",
         }

@@ -82,9 +82,10 @@ def validate_ami(ami_id):
         }
 
     except Exception as exc:
+        print("AMI validation failed:", repr(exc))
         return {
             "status": "error",
-            "message": str(exc),
+            "message": "Unable to validate the AMI.",
         }
 
 

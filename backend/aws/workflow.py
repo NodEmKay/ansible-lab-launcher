@@ -209,10 +209,11 @@ def get_rh294_status(inventory=None):
         }
 
     except Exception as exc:
+        print("RH294 environment status check failed:", repr(exc))
         return {
             "status": "not_ready",
             "checks": {},
-            "error": str(exc),
+            "error": "Unable to determine RH294 environment status.",
         }
 
     finally:
@@ -298,9 +299,10 @@ def validate_ansible(inventory=None):
         }
 
     except Exception as exc:
+        print("Ansible validation failed:", repr(exc))
         return {
             "status": "not_ready",
-            "error": str(exc),
+            "error": "Unable to complete Ansible validation.",
         }
 
     finally:
