@@ -298,13 +298,16 @@ def validate_ansible(inventory=None):
         if validation_status == "ready":
             student_workspace = _run_remote(
                 client,
-                """mkdir -p "$HOME/rhce-lab" &&
+                """python3 -m ensurepip --user >/dev/null 2>&1 &&
+python3 -m pip install --user ansible-navigator >/tmp/rh294-navigator-install.log 2>&1 &&
+mkdir -p "$HOME/rhce-lab" &&
 cp "$HOME/ansible-projects/aws-rh294/ansible.cfg" "$HOME/rhce-lab/ansible.cfg" &&
 cp "$HOME/ansible-projects/aws-rh294/ansible-navigator.yml" "$HOME/rhce-lab/ansible-navigator.yml" &&
 cp "$HOME/ansible-projects/aws-rh294/inventory" "$HOME/rhce-lab/inventory" &&
 chmod 755 "$HOME/rhce-lab" &&
-chmod 644 "$HOME/rhce-lab/ansible.cfg" "$HOME/rhce-lab/ansible-navigator.yml" "$HOME/rhce-lab/inventory" """,
-                timeout=30,
+chmod 644 "$HOME/rhce-lab/ansible.cfg" "$HOME/rhce-lab/ansible-navigator.yml" "$HOME/rhce-lab/inventory" &&
+"$HOME/.local/bin/ansible-navigator" --version >/dev/null""",
+                timeout=300,
             )
 
             if not student_workspace["ok"]:
