@@ -924,30 +924,130 @@ def prepare_rh294(job_id=None):
             "Waiting for execution environment",
         )
 
-        bootstrap_result = _run_remote(
+        # The RH294 bootstrap can take a long time on a fresh workstation.
+        # The workstation owns the long-running process and persistent state;
+        # the Launcher only reconciles and observes it.
+        state_dir = "$HOME/.local/state/ansible-lab-launcher/rh294"
+        complete_file = f"{state_dir}/bootstrap.complete"
+        failed_file = f"{state_dir}/bootstrap.failed"
+        log_file = f"{state_dir}/bootstrap.log"
+
+        _run_remote(
             client,
-            "cd $HOME/ansible-projects/aws-rh294 && "
-            "bash scripts/bootstrap-workstation.sh "
-            ">/tmp/rh294-bootstrap.log 2>&1",
-            timeout=900,
+            f"mkdir -p {state_dir}",
         )
 
-        if not bootstrap_result["ok"]:
-            _set_prepare_step(
-                job_id,
-                "execution_environment",
-                "failed",
-                "RH294 repository bootstrap failed",
+        # Reconcile against the actual environment first. Markers are
+        # advisory; a healthy environment is authoritative.
+        dev_exists = _run_remote(
+            client,
+            "podman container exists ansible-dev",
+        )
+
+        if dev_exists["ok"]:
+            _run_remote(
+                client,
+                "podman start ansible-dev >/dev/null 2>&1 || true",
             )
 
-            return {
-                "status": "failed",
-                "stage": "rh294_bootstrap",
-                "message": (
-                    "RH294 repository bootstrap failed. "
-                    "Check Launcher service logs."
-                ),
-            }
+        environment_ready = _run_remote(
+            client,
+            "podman image exists localhost/rh294-ee:1.0 && "
+            "podman container exists ansible-dev && "
+            "test \"$(podman inspect -f '{{.State.Running}}' ansible-dev)\" = true && "
+            "podman exec ansible-dev "
+            "podman image exists localhost/rh294-ee:1.0",
+        )
+
+        if environment_ready["ok"]:
+            _run_remote(
+                client,
+                f"touch {complete_file} && rm -f {failed_file}",
+            )
+
+        complete = _run_remote(
+            client,
+            f"test -f {complete_file}",
+        )
+
+        if not complete["ok"]:
+            running = _run_remote(
+                client,
+                "pgrep -f '[b]ootstrap-workstation.sh' >/dev/null",
+            )
+
+            if not running["ok"]:
+                launch = _run_remote(
+                    client,
+                    f"rm -f {complete_file} {failed_file}; "
+                    "cd $HOME/ansible-projects/aws-rh294 && "
+                    "nohup sh -c '"
+                    f"bash scripts/bootstrap-workstation.sh >{log_file} 2>&1; "
+                    "rc=$?; "
+                    "if [ $rc -eq 0 ]; then "
+                    f"touch {complete_file}; "
+                    "else "
+                    f"echo $rc >{failed_file}; "
+                    "fi"
+                    "' >/dev/null 2>&1 </dev/null &",
+                )
+
+                if not launch["ok"]:
+                    raise RuntimeError(
+                        "Unable to start RH294 workstation bootstrap"
+                    )
+
+            import time
+
+            while True:
+                complete = _run_remote(
+                    client,
+                    f"test -f {complete_file}",
+                )
+
+                if complete["ok"]:
+                    break
+
+                failed = _run_remote(
+                    client,
+                    f"test -f {failed_file}",
+                )
+
+                if failed["ok"]:
+                    _set_prepare_step(
+                        job_id,
+                        "execution_environment",
+                        "failed",
+                        "RH294 repository bootstrap failed",
+                    )
+
+                    return {
+                        "status": "failed",
+                        "stage": "rh294_bootstrap",
+                        "message": (
+                            "RH294 repository bootstrap failed. "
+                            "Check the workstation bootstrap log."
+                        ),
+                    }
+
+                running = _run_remote(
+                    client,
+                    "pgrep -f '[b]ootstrap-workstation.sh' >/dev/null",
+                )
+
+                if not running["ok"]:
+                    # No marker and no process means the remote bootstrap
+                    # disappeared unexpectedly.
+                    return {
+                        "status": "failed",
+                        "stage": "rh294_bootstrap",
+                        "message": (
+                            "RH294 bootstrap stopped unexpectedly. "
+                            "Run Prepare again to reconcile the environment."
+                        ),
+                    }
+
+                time.sleep(5)
 
         _set_prepare_step(
             job_id,

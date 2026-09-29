@@ -139,33 +139,15 @@ chmod 700 "$HOME/.ssh"
 # Relative target works both on workstation and inside ansible-dev.
 ln -sfn ansible-lab-key.pem "$HOME/.ssh/ansiblelab.pem"
 
+RH294_REVISION="2bffc2e5288eb876c313ce68ae844fb1fb57b93d"
+
 if [ -d "$PROJECT/.git" ]; then
-    git -C "$PROJECT" pull --ff-only
+    git -C "$PROJECT" fetch origin
 else
     git clone https://github.com/NodEmKay/aws-rh294-lab.git "$PROJECT"
 fi
 
-# Compatibility fix for inventory entries that include ansible_host.
-# The repository validator originally required the whole inventory line
-# to equal the hostname, but Launcher inventory lines also contain variables.
-python3 - "$PROJECT/scripts/bootstrap-workstation.sh" <<'PATCH'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-text = path.read_text()
-
-old = 'grep -Fxq "$HOST" "$INVENTORY_FILE"'
-new = 'grep -Eq "^${{HOST}}[[:space:]]" "$INVENTORY_FILE"'
-
-if old in text:
-    text = text.replace(old, new)
-    path.write_text(text)
-elif new not in text:
-    raise SystemExit(
-        "Unsupported RH294 inventory validator format"
-    )
-PATCH
+git -C "$PROJECT" checkout --detach "$RH294_REVISION"
 
 cat > "$PROJECT/inventory" <<'INVENTORY'
 {inventory}
