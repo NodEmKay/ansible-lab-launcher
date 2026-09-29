@@ -45,15 +45,14 @@ def aws_status():
 
         return {
             "status": "connected",
-            "account": identity["Account"],
-            "arn": identity["Arn"],
             "region": session.region_name,
         }
 
     except (NoCredentialsError, BotoCoreError, ClientError) as exc:
+        print("AWS status check failed:", repr(exc))
         return {
             "status": "disconnected",
-            "error": str(exc),
+            "message": "Unable to access the AWS environment.",
         }
 
 
@@ -79,9 +78,10 @@ def aws_environment():
         }
 
     except (NoCredentialsError, BotoCoreError, ClientError) as exc:
+        print("AWS environment discovery failed:", repr(exc))
         return {
             "status": "error",
-            "error": str(exc),
+            "message": "Unable to discover the AWS environment.",
         }
 
 
@@ -156,9 +156,10 @@ def create_ssh_key(key_name: str):
         }
 
     except (NoCredentialsError, BotoCoreError, ClientError) as exc:
+        print("SSH key operation failed:", repr(exc))
         return {
             "status": "error",
-            "message": str(exc),
+            "message": "Unable to complete the SSH key operation.",
         }
 
 
