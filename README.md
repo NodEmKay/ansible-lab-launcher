@@ -6,7 +6,6 @@ The launcher creates an AWS environment consisting of one Ansible workstation an
 
 ## Architecture
 
-```text
                     Ansible Lab Launcher
                     FastAPI + Web UI
                            |
@@ -22,7 +21,6 @@ The launcher creates an AWS environment consisting of one Ansible workstation an
         +-------------> serverc
         |
         +-------------> serverd
-```
 
 The current lab contains:
 
@@ -36,7 +34,6 @@ The current lab contains:
 
 ## Workflow
 
-```text
 AWS Infrastructure
        |
        v
@@ -62,7 +59,6 @@ Run Ansible Validation
        |
        v
 RH294 LAB READY
-```
 
 Preparation runs asynchronously and the UI displays live progress.
 
@@ -70,9 +66,7 @@ If authentication to `registry.redhat.io` is required, the launcher pauses and d
 
 The Red Hat credentials are entered directly on the AWS workstation:
 
-```bash
 podman login registry.redhat.io
-```
 
 The launcher does not request or store Red Hat credentials.
 
@@ -95,18 +89,14 @@ The configured RHEL AMI is region-specific. Verify the AMI before using another 
 
 Clone the repository:
 
-```bash
 git clone https://github.com/NodEmKay/ansible-lab-launcher.git
 cd ansible-lab-launcher
-```
 
 Ensure your AWS CLI credentials are configured on the host.
 
 Start the development container:
 
-```bash
 ./run-dev.sh
-```
 
 The FastAPI service listens on port `8000`.
 
@@ -251,7 +241,6 @@ Credential material must never be committed.
 
 The repository ignores:
 
-```text
 *.pem
 *.key
 .aws/
@@ -259,7 +248,6 @@ The repository ignores:
 .env.*
 data/
 keys/
-```
 
 Before publishing changes, perform a secret scan of both the working tree and Git history.
 
