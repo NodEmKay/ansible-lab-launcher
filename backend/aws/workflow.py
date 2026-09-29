@@ -60,14 +60,39 @@ def _read_validation_state(inventory):
 
 
 def _run_remote(client, command, timeout=30):
-    """Run a command on the workstation and return basic execution data."""
+    """Run a remote command with bounded channel handling."""
+    import time
 
     stdin, stdout, stderr = client.exec_command(
         command,
         timeout=timeout,
     )
 
-    exit_code = stdout.channel.recv_exit_status()
+    channel = stdout.channel
+    deadline = time.monotonic() + timeout
+
+    while not channel.exit_status_ready():
+        if channel.recv_ready():
+            channel.recv(65536)
+
+        if channel.recv_stderr_ready():
+            channel.recv_stderr(65536)
+
+        if time.monotonic() >= deadline:
+            channel.close()
+            raise TimeoutError(
+                f"Remote command did not complete within {timeout} seconds"
+            )
+
+        time.sleep(0.05)
+
+    while channel.recv_ready():
+        channel.recv(65536)
+
+    while channel.recv_stderr_ready():
+        channel.recv_stderr(65536)
+
+    exit_code = channel.recv_exit_status()
 
     return {
         "ok": exit_code == 0,
