@@ -522,7 +522,169 @@ def get_workflow_status(run_ansible_validation=False):
     }
 
 
-def prepare_rh294():
+_PREPARE_JOB_STATE = {
+    "status": "idle",
+    "job_id": None,
+    "current_stage": None,
+    "detail": "",
+    "message": "",
+    "step_updates": {},
+}
+
+_PREPARE_JOB_LOCK = None
+
+
+def _get_prepare_job_lock():
+    global _PREPARE_JOB_LOCK
+
+    if _PREPARE_JOB_LOCK is None:
+        import threading
+        _PREPARE_JOB_LOCK = threading.Lock()
+
+    return _PREPARE_JOB_LOCK
+
+
+def _prepare_job_snapshot():
+    import copy
+
+    with _get_prepare_job_lock():
+        return copy.deepcopy(_PREPARE_JOB_STATE)
+
+
+def _set_prepare_job(job_id, **updates):
+    if job_id is None:
+        return
+
+    with _get_prepare_job_lock():
+        if _PREPARE_JOB_STATE.get("job_id") != job_id:
+            return
+
+        _PREPARE_JOB_STATE.update(updates)
+
+
+def _set_prepare_step(job_id, step_id, status, detail):
+    if job_id is None:
+        return
+
+    with _get_prepare_job_lock():
+        if _PREPARE_JOB_STATE.get("job_id") != job_id:
+            return
+
+        step_updates = _PREPARE_JOB_STATE.setdefault(
+            "step_updates",
+            {},
+        )
+
+        step_updates[step_id] = {
+            "status": status,
+            "detail": detail,
+        }
+
+        _PREPARE_JOB_STATE["current_stage"] = step_id
+        _PREPARE_JOB_STATE["detail"] = detail
+
+
+def get_prepare_job_status():
+    """Return lightweight RH294 preparation progress."""
+    return _prepare_job_snapshot()
+
+
+def _prepare_job_worker(job_id):
+    result = prepare_rh294(job_id=job_id)
+
+    result_status = result.get("status")
+
+    if result_status == "ready":
+        _set_prepare_job(
+            job_id,
+            status="ready",
+            current_stage="complete",
+            detail="RH294 environment prepared and validated",
+            message="RH294 environment is ready",
+        )
+
+    elif result_status == "action_required":
+        _set_prepare_job(
+            job_id,
+            status="action_required",
+            current_stage=result.get(
+                "stage",
+                "registry_authentication",
+            ),
+            detail=result.get(
+                "message",
+                "User action is required",
+            ),
+            message=result.get(
+                "message",
+                "User action is required",
+            ),
+        )
+
+    else:
+        _set_prepare_job(
+            job_id,
+            status="failed",
+            current_stage=result.get("stage"),
+            detail=result.get(
+                "message",
+                "RH294 preparation failed",
+            ),
+            message=result.get(
+                "message",
+                "RH294 preparation failed",
+            ),
+        )
+
+
+def start_prepare_rh294_job():
+    """
+    Start RH294 preparation asynchronously.
+
+    Only one preparation job may run at a time.
+    """
+    import copy
+    import threading
+    import uuid
+
+    lock = _get_prepare_job_lock()
+
+    with lock:
+        if _PREPARE_JOB_STATE.get("status") == "running":
+            return copy.deepcopy(_PREPARE_JOB_STATE)
+
+        job_id = uuid.uuid4().hex
+
+        _PREPARE_JOB_STATE.clear()
+        _PREPARE_JOB_STATE.update(
+            {
+                "status": "running",
+                "job_id": job_id,
+                "current_stage": "workstation",
+                "detail": "Preparing Ansible workstation",
+                "message": "RH294 preparation is running",
+                "step_updates": {
+                    "workstation": {
+                        "status": "running",
+                        "detail": "Preparing Ansible workstation",
+                    }
+                },
+            }
+        )
+
+    thread = threading.Thread(
+        target=_prepare_job_worker,
+        args=(job_id,),
+        name=f"rh294-prepare-{job_id[:8]}",
+        daemon=True,
+    )
+
+    thread.start()
+
+    return _prepare_job_snapshot()
+
+
+def prepare_rh294(job_id=None):
     """
     Prepare the complete RH294 environment.
 
@@ -531,38 +693,84 @@ def prepare_rh294():
     """
     from backend.aws.bootstrap import bootstrap_workstation
 
+    _set_prepare_step(
+        job_id,
+        "workstation",
+        "running",
+        "Preparing Git, Podman, repository and SSH",
+    )
+
     bootstrap = bootstrap_workstation()
 
     if bootstrap.get("status") != "ready":
+        _set_prepare_step(
+            job_id,
+            "workstation",
+            "failed",
+            "Ansible workstation preparation failed",
+        )
+
         return {
             "status": "failed",
             "stage": "workstation",
-            "details": bootstrap,
+            "message": "Ansible workstation preparation failed",
         }
+
+    _set_prepare_step(
+        job_id,
+        "workstation",
+        "complete",
+        "Git, Podman, repository and SSH ready",
+    )
 
     inventory = get_lab_inventory()
 
     if inventory.get("status") != "ready":
+        _set_prepare_step(
+            job_id,
+            "infrastructure",
+            "failed",
+            "AWS lab inventory is not ready",
+        )
+
         return {
             "status": "failed",
             "stage": "infrastructure",
             "message": "AWS lab inventory is not ready",
         }
 
+    _set_prepare_step(
+        job_id,
+        "managed_hosts",
+        "complete",
+        "4/4 managed hosts reachable",
+    )
+
+    _set_prepare_step(
+        job_id,
+        "host_mappings",
+        "complete",
+        "Current AWS private addresses configured",
+    )
+
     client = None
 
     try:
         client = _connect_workstation(inventory)
 
-        # The repository bootstrap can reuse an existing custom EE.
         ee = _run_remote(
             client,
             "podman image exists localhost/rh294-ee:1.0",
         )
 
-        # Registry authentication is required only when the custom
-        # execution environment must be built/pulled.
         if not ee["ok"]:
+            _set_prepare_step(
+                job_id,
+                "registry",
+                "running",
+                "Checking Red Hat registry authentication",
+            )
+
             registry = _run_remote(
                 client,
                 "podman login --get-login registry.redhat.io "
@@ -570,16 +778,58 @@ def prepare_rh294():
             )
 
             if not registry["ok"]:
+                _set_prepare_step(
+                    job_id,
+                    "registry",
+                    "action_required",
+                    (
+                        "Connect to the AWS workstation and run "
+                        "podman login registry.redhat.io"
+                    ),
+                )
+
                 return {
                     "status": "action_required",
                     "stage": "registry_authentication",
                     "message": (
-                        "Authenticate to registry.redhat.io directly "
-                        "on the AWS workstation, then run Prepare again"
+                        "Connect to the AWS workstation, run "
+                        "podman login registry.redhat.io, then "
+                        "click Continue Setup."
                     ),
                 }
 
-        # Run the proven repository bootstrap.
+            _set_prepare_step(
+                job_id,
+                "registry",
+                "complete",
+                "Authenticated",
+            )
+
+        else:
+            _set_prepare_step(
+                job_id,
+                "registry",
+                "not_required",
+                (
+                    "Existing execution environment available; "
+                    "registry login not required"
+                ),
+            )
+
+        _set_prepare_step(
+            job_id,
+            "execution_environment",
+            "running",
+            "Building and validating localhost/rh294-ee:1.0",
+        )
+
+        _set_prepare_step(
+            job_id,
+            "development_environment",
+            "pending",
+            "Waiting for execution environment",
+        )
+
         bootstrap_result = _run_remote(
             client,
             "cd $HOME/ansible-projects/aws-rh294 && "
@@ -589,37 +839,82 @@ def prepare_rh294():
         )
 
         if not bootstrap_result["ok"]:
+            _set_prepare_step(
+                job_id,
+                "execution_environment",
+                "failed",
+                "RH294 repository bootstrap failed",
+            )
+
             return {
                 "status": "failed",
                 "stage": "rh294_bootstrap",
-                "exit_code": bootstrap_result["exit_code"],
                 "message": (
                     "RH294 repository bootstrap failed. "
-                    "See /tmp/rh294-bootstrap.log on the workstation."
+                    "Check Launcher service logs."
                 ),
             }
 
+        _set_prepare_step(
+            job_id,
+            "execution_environment",
+            "complete",
+            "localhost/rh294-ee:1.0 available",
+        )
+
+        _set_prepare_step(
+            job_id,
+            "development_environment",
+            "complete",
+            "ansible-dev running; nested EE available",
+        )
+
     except Exception as exc:
+        print(
+            "RH294 preparation backend error:",
+            repr(exc),
+            flush=True,
+        )
+
         return {
             "status": "failed",
             "stage": "prepare",
-            "message": str(exc),
+            "message": "RH294 preparation failed",
         }
 
     finally:
         if client is not None:
             client.close()
 
-    # Functional proof: ansible-navigator must succeed against
-    # all managed hosts before the lab becomes READY.
+    _set_prepare_step(
+        job_id,
+        "ansible_validation",
+        "running",
+        "Running functional Ansible validation",
+    )
+
     validation = validate_ansible(inventory)
 
     if validation.get("status") != "ready":
+        _set_prepare_step(
+            job_id,
+            "ansible_validation",
+            "failed",
+            "Functional Ansible validation failed",
+        )
+
         return {
             "status": "failed",
             "stage": "ansible_validation",
-            "details": validation,
+            "message": "Functional Ansible validation failed",
         }
+
+    _set_prepare_step(
+        job_id,
+        "ansible_validation",
+        "complete",
+        "Last functional validation passed",
+    )
 
     return {
         "status": "ready",

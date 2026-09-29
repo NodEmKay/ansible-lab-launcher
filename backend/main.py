@@ -271,10 +271,18 @@ def lab_workflow_status():
     return get_workflow_status(run_ansible_validation=False)
 
 
+@app.get("/api/labs/prepare/status")
+def prepare_rh294_status():
+    """Return lightweight RH294 preparation job progress."""
+    from backend.aws.workflow import get_prepare_job_status
+    return get_prepare_job_status()
+
+
 @app.post("/api/labs/prepare")
 def prepare_rh294_lab():
-    """Prepare the Launcher-managed RH294 environment."""
-    return prepare_rh294()
+    """Start or resume Launcher-managed RH294 preparation."""
+    from backend.aws.workflow import start_prepare_rh294_job
+    return start_prepare_rh294_job()
 
 
 @app.post("/api/labs/validate")

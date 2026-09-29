@@ -744,13 +744,27 @@ const message = document.getElementById("message");
 
 
 function showMessage(text, type = "info", autoHide = false) {
+    if (window.launcherMessageTimer) {
+        clearTimeout(window.launcherMessageTimer);
+        window.launcherMessageTimer = null;
+    }
+
     message.style.display = "block";
+    message.style.whiteSpace = "pre-line";
     message.textContent = text;
 
     if (type === "success") {
         message.style.borderColor = "rgba(34, 197, 94, 0.45)";
         message.style.background = "rgba(34, 197, 94, 0.12)";
         message.style.color = "#86efac";
+    } else if (type === "action") {
+        message.style.borderColor = "rgba(245, 158, 11, 0.50)";
+        message.style.background = "rgba(245, 158, 11, 0.10)";
+        message.style.color = "#fcd34d";
+    } else if (type === "error") {
+        message.style.borderColor = "rgba(239, 68, 68, 0.50)";
+        message.style.background = "rgba(239, 68, 68, 0.10)";
+        message.style.color = "#fca5a5";
     } else {
         message.style.borderColor = "";
         message.style.background = "";
@@ -758,12 +772,12 @@ function showMessage(text, type = "info", autoHide = false) {
     }
 
     if (autoHide) {
-        setTimeout(() => {
+        window.launcherMessageTimer = setTimeout(() => {
             message.style.display = "none";
+            window.launcherMessageTimer = null;
         }, 7000);
     }
 }
-
 
 async function loadAwsEnvironment() {
 
@@ -916,61 +930,39 @@ buildButton.addEventListener("click", async () => {
 
 
 prepareButton.addEventListener("click", async () => {
-    const originalText = prepareButton.textContent;
-
     prepareButton.disabled = true;
-    prepareButton.textContent = "Preparing RH294...";
+    prepareButton.textContent = "Starting RH294...";
+
+    showMessage(
+        "Starting RH294 preparation...",
+        "info"
+    );
 
     try {
         const response = await fetch("/api/labs/prepare", {
             method: "POST"
         });
 
-        const data = await response.json();
+        const job = await response.json();
 
-        if (data.status === "ready") {
-            prepareButton.textContent = "RH294 Ready";
+        applyPrepareJobState(job, true);
 
-            showMessage(
-                "✓ RH294 environment is ready — All 4 managed hosts passed Ansible validation.",
-                "success",
-                true
-            );
-        } else if (
-            data.status === "action_required" &&
-            data.stage === "registry_authentication"
-        ) {
-            prepareButton.textContent = "Continue Setup";
-
-            alert(
-                "Red Hat registry authentication is required.\n\n" +
-                "SSH to the AWS workstation and run:\n\n" +
-                "podman login registry.redhat.io\n\n" +
-                "Then return here and click Continue Setup.\n\n" +
-                "Do not enter your Red Hat password in this web page."
-            );
-        } else {
-            prepareButton.textContent = "Retry RH294 Preparation";
-
-            alert(
-                data.message ||
-                "RH294 preparation did not complete."
-            );
+        if (job.status === "running") {
+            startPreparePolling();
         }
+
     } catch (error) {
         console.error(error);
-        prepareButton.textContent = originalText;
 
-        alert(
-            "Unable to complete RH294 preparation. " +
-            "Check the Launcher service logs."
+        prepareButton.disabled = false;
+        prepareButton.textContent = "Retry RH294 Preparation";
+
+        showMessage(
+            "Unable to start RH294 preparation. Check the Launcher service logs.",
+            "error"
         );
-    } finally {
-        await loadLabStatus();
-        await loadWorkflowStatus();
     }
 });
-
 
 destroyButton.addEventListener("click", async () => {
 
@@ -1017,6 +1009,182 @@ destroyButton.addEventListener("click", async () => {
 
 
 
+
+let preparePollTimer = null;
+
+
+function updateWorkflowStep(stepId, status, detail) {
+    const row = document.querySelector(
+        `[data-step-id="${stepId}"]`
+    );
+
+    if (!row) {
+        return;
+    }
+
+    const number = row.querySelector(".step-number");
+    const detailElement = row.querySelector(".step-detail");
+
+    number.style.color = "";
+    number.style.borderColor = "";
+
+    if (status === "complete") {
+        number.textContent = "✓";
+        number.style.color = "var(--green)";
+        number.style.borderColor = "var(--green)";
+    } else if (status === "running") {
+        number.textContent = "↻";
+        number.style.color = "#60a5fa";
+        number.style.borderColor = "#60a5fa";
+    } else if (status === "action_required") {
+        number.textContent = "!";
+        number.style.color = "#f59e0b";
+        number.style.borderColor = "#f59e0b";
+    } else if (status === "failed") {
+        number.textContent = "!";
+        number.style.color = "var(--red)";
+        number.style.borderColor = "var(--red)";
+    } else if (status === "not_required") {
+        number.textContent = "○";
+    }
+
+    if (detailElement && detail) {
+        detailElement.textContent = detail;
+    }
+}
+
+
+function stopPreparePolling() {
+    if (preparePollTimer !== null) {
+        clearTimeout(preparePollTimer);
+        preparePollTimer = null;
+    }
+}
+
+
+function applyPrepareJobState(job, notify = false) {
+    if (!job) {
+        return;
+    }
+
+    Object.entries(job.step_updates || {}).forEach(
+        ([stepId, update]) => {
+            updateWorkflowStep(
+                stepId,
+                update.status,
+                update.detail
+            );
+        }
+    );
+
+    if (job.status === "running") {
+        prepareButton.disabled = true;
+        prepareButton.textContent = "Preparing RH294...";
+
+        showMessage(
+            "RH294 preparation is running...\n\n" +
+            (job.detail || "Working..."),
+            "info"
+        );
+
+    } else if (job.status === "action_required") {
+        stopPreparePolling();
+
+        prepareButton.disabled = false;
+        prepareButton.textContent = "Continue Setup";
+
+        showMessage(
+            "Red Hat Registry Login Required\n\n" +
+            "1. Connect to the AWS workstation.\n" +
+            "2. Run: podman login registry.redhat.io\n" +
+            "3. Enter your Red Hat credentials directly on the workstation.\n" +
+            "4. Return here and click Continue Setup.",
+            "action"
+        );
+
+    } else if (job.status === "ready") {
+        stopPreparePolling();
+
+        prepareButton.disabled = true;
+        prepareButton.textContent = "RH294 Ready";
+
+        if (notify) {
+            showMessage(
+                "✓ RH294 environment is ready — All 4 managed hosts passed Ansible validation.",
+                "success",
+                true
+            );
+        }
+
+    } else if (job.status === "failed") {
+        stopPreparePolling();
+
+        prepareButton.disabled = false;
+        prepareButton.textContent = "Retry RH294 Preparation";
+
+        showMessage(
+            job.message || "RH294 preparation failed.",
+            "error"
+        );
+    }
+}
+
+
+async function refreshPrepareJobState(notify = false) {
+    try {
+        const response = await fetch(
+            "/api/labs/prepare/status",
+            { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+            return null;
+        }
+
+        const job = await response.json();
+
+        applyPrepareJobState(job, notify);
+
+        return job;
+
+    } catch (error) {
+        console.error(
+            "Unable to load RH294 preparation status",
+            error
+        );
+
+        return null;
+    }
+}
+
+
+function startPreparePolling() {
+    if (preparePollTimer !== null) {
+        return;
+    }
+
+    const poll = async () => {
+        preparePollTimer = null;
+
+        const job = await refreshPrepareJobState(true);
+
+        if (!job) {
+            preparePollTimer = setTimeout(poll, 3000);
+            return;
+        }
+
+        if (job.status === "running") {
+            preparePollTimer = setTimeout(poll, 2000);
+            return;
+        }
+
+        await loadWorkflowStatus();
+    };
+
+    preparePollTimer = setTimeout(poll, 500);
+}
+
+
 async function loadWorkflowStatus() {
 
     const container = document.getElementById("workflow-steps");
@@ -1033,6 +1201,7 @@ async function loadWorkflowStatus() {
 
             const row = document.createElement("div");
             row.className = "step";
+            row.dataset.stepId = step.id;
 
             const number = document.createElement("div");
             number.className = "step-number";
@@ -1059,6 +1228,7 @@ async function loadWorkflowStatus() {
             title.textContent = step.name;
 
             const detail = document.createElement("div");
+            detail.className = "step-detail";
             detail.textContent = step.detail || "";
             detail.style.fontSize = "11px";
             detail.style.marginTop = "3px";
@@ -1083,6 +1253,16 @@ async function loadWorkflowStatus() {
 
         readyBanner.style.display =
             data.rh294_ready === true ? "block" : "none";
+
+        const prepareJob =
+            await refreshPrepareJobState(false);
+
+        if (
+            prepareJob &&
+            prepareJob.status === "running"
+        ) {
+            startPreparePolling();
+        }
 
     } catch (error) {
 
