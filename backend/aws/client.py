@@ -7,8 +7,13 @@ def get_session():
     role_arn = os.getenv("STUDENT_ROLE_ARN")
     external_id = os.getenv("STUDENT_EXTERNAL_ID")
 
-    if not role_arn or not external_id:
+    if not role_arn and not external_id:
         return boto3.Session()
+
+    if not role_arn or not external_id:
+        raise ValueError(
+            "STUDENT_ROLE_ARN and STUDENT_EXTERNAL_ID must both be configured"
+        )
 
     base_session = boto3.Session()
 

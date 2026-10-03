@@ -1,3 +1,4 @@
+from backend.aws.client import get_session
 import boto3
 import ipaddress
 import urllib.request
@@ -38,7 +39,7 @@ def health():
 @app.get("/api/aws/status")
 def aws_status():
     try:
-        session = boto3.Session()
+        session = get_session()
         sts = session.client("sts")
 
         identity = sts.get_caller_identity()
@@ -59,7 +60,7 @@ def aws_status():
 @app.get("/api/aws/environment")
 def aws_environment():
     try:
-        session = boto3.Session()
+        session = get_session()
         region = session.region_name
 
         ec2 = session.client("ec2", region_name=region)
@@ -111,7 +112,7 @@ def create_ssh_key(key_name: str):
                 "message": "Local SSH private key already exists",
             }
 
-        session = boto3.Session()
+        session = get_session()
         ec2 = session.client("ec2", region_name=session.region_name)
 
         existing = ec2.describe_key_pairs(
